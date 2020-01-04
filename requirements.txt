@@ -8,6 +8,7 @@ ffmpeg==1.4
 filetype==1.0.5
 idna==2.8
 packaging==19.2
+pafy==0.5.5
 pyparsing==2.4.6
 requests==2.22.0
 six==1.13.0
