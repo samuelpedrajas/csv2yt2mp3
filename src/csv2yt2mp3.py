@@ -11,6 +11,7 @@ import json
 import os
 import pathlib
 import sys
+import time
 
 import cfg
 
@@ -44,6 +45,10 @@ def parse_duration(duration):
 	]) / 60.0
 
 
+def url_is_playlist(url):
+	return "list=" in url
+
+
 def take_best_result(search_result):
 	for i, video_info in enumerate(search_result):
 		print("Processing video ({}): {}".format(i, video_info))
@@ -55,6 +60,10 @@ def take_best_result(search_result):
 		print("Getting metadata...")
 		video_url = cfg.base_url + video_info.get("link", "")
 
+		if url_is_playlist(video_url):
+			print("ERROR: url is a playlist")
+			continue
+
 		try:
 			video = pafy.new(video_url)
 			video_duration = parse_duration(video.duration)
@@ -63,6 +72,7 @@ def take_best_result(search_result):
 					video_duration, cfg.max_minutes
 				))
 				continue
+
 			print("Title: {}, Duration: {}".format(video.title, video.duration))
 			return video_url
 		except Exception as e:
@@ -91,62 +101,77 @@ def write_metadata(mp3_file_path, row):
 	audiofile.tag.save()
 
 
-def main():
+def video_download(video_url):
+	attempts = 1
 	with youtube_dl.YoutubeDL(cfg.ydl_opts) as ydl:
-		csv_file_path = get_arguments()
-		mp3_files = list_mp3_files(".")
-		if len(mp3_files) > 0:
-			print("ERROR: please, remove all mp3 files from the current directory first")
-			exit(1)
-		print("Opening CSV: {}".format(csv_file_path))
-		with open(csv_file_path, newline='') as csv_file:
-			reader = csv.DictReader(csv_file)
-			for row in reader:
-				search_query = get_search_query(row)
-
-				print("\n=== Searching {} ===".format(search_query))
-				new_mp3_file_name = get_mp3_file_name(row)
-				mp3_dir = os.path.join(
-					cfg.download_dir, row['artist_name'], row['album']
-				)
-				mp3_file_path = os.path.join(mp3_dir, new_mp3_file_name)
-				if os.path.exists(mp3_file_path):
-					print("ERROR: song {} already exists".format(mp3_file_path))
-					continue
-
-				search_result = youtube_search.YoutubeSearch(
-					search_query, max_results=10
-				).to_json()
-				search_result = json.loads(search_result)
-				search_result = search_result.get("videos", [])
-				if not search_result:
-					print("Search results are empty")
-					continue
-
-				video_url = take_best_result(search_result)
-				if video_url is None:
-					print("ERROR: no video found for search {} with results {}".format(
-						search_query, search_result
-					))
-					continue
-
-				print("Downloading video: {}".format(video_url))
+		while attempts <= cfg.attempts:
+			try:
+				print("Attempt {}".format(attempts))
 				ydl.download([video_url])
-				mp3_files = list_mp3_files(".")
-				if  not mp3_files or len(mp3_files) > 1:
-					print("ERROR: more than one file (or none) in current directory")
-					exit(1)
-				mp3_file_name = mp3_files[0]
-				print("Video downloaded: {}".format(mp3_file_name))
+			except Exception as e:
+				wait_time = cfg.wait_time[attempts - 1]
+				print("ERROR: {}\nWaiting {} seconds".format(str(e), wait_time))
+				time.sleep(wait_time)
+			finally:
+				return
 
-				print("Creating directories...")
-				pathlib.Path(mp3_dir).mkdir(parents=True, exist_ok=True)
 
-				print("Saving to {}".format(mp3_file_path))
-				os.rename(mp3_file_name, os.path.join(mp3_file_path))
+def main():
+	csv_file_path = get_arguments()
+	mp3_files = list_mp3_files(".")
+	if len(mp3_files) > 0:
+		print("ERROR: please, remove all mp3 files from the current directory first")
+		exit(1)
+	print("Opening CSV: {}".format(csv_file_path))
+	with open(csv_file_path, newline='') as csv_file:
+		reader = csv.DictReader(csv_file)
+		for row in reader:
+			search_query = get_search_query(row)
 
-				print("Updating file metadata...")
-				write_metadata(mp3_file_path, row)
+			print("\n=== Searching {} ===".format(search_query))
+			new_mp3_file_name = get_mp3_file_name(row)
+			mp3_dir = os.path.join(
+				cfg.download_dir, row['artist_name'], row['album']
+			)
+			mp3_file_path = os.path.join(mp3_dir, new_mp3_file_name)
+			if os.path.exists(mp3_file_path):
+				print("ERROR: song {} already exists".format(mp3_file_path))
+				continue
+
+			search_result = youtube_search.YoutubeSearch(
+				search_query, max_results=10
+			).to_json()
+			search_result = json.loads(search_result)
+			search_result = search_result.get("videos", [])
+			if not search_result:
+				print("Search results are empty")
+				continue
+
+			video_url = take_best_result(search_result)
+			if video_url is None:
+				print("ERROR: no video found for search {} with results {}".format(
+					search_query, search_result
+				))
+				continue
+
+			print("Downloading video: {}".format(video_url))
+			video_download(video_url)
+
+			mp3_files = list_mp3_files(".")
+			if  not mp3_files or len(mp3_files) > 1:
+				print("ERROR: more than one file (or none) in current directory")
+				exit(1)
+			mp3_file_name = mp3_files[0]
+			print("Video downloaded: {}".format(mp3_file_name))
+
+			print("Creating directories...")
+			pathlib.Path(mp3_dir).mkdir(parents=True, exist_ok=True)
+
+			print("Saving to {}".format(mp3_file_path))
+			os.rename(mp3_file_name, os.path.join(mp3_file_path))
+
+			print("Updating file metadata...")
+			write_metadata(mp3_file_path, row)
 
 
 if __name__ == "__main__":
