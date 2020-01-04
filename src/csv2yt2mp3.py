@@ -1,5 +1,6 @@
 #!/bin/env python
 
+import eyed3
 import pafy
 import youtube_dl
 import youtube_search
@@ -80,6 +81,16 @@ def get_mp3_file_name(row):
 	return row['song_name'] + ".mp3"
 
 
+def write_metadata(mp3_file_path, row):
+	audiofile = eyed3.load(mp3_file_path)
+	audiofile.tag.artist = row["artist_name"]
+	audiofile.tag.album = row["album"]
+	audiofile.tag.album_artist = row["artist_name"]
+	audiofile.tag.title = row["song_name"]
+
+	audiofile.tag.save()
+
+
 def main():
 	with youtube_dl.YoutubeDL(cfg.ydl_opts) as ydl:
 		csv_file_path = get_arguments()
@@ -127,11 +138,16 @@ def main():
 					exit(1)
 				mp3_file_name = mp3_files[0]
 				print("Video downloaded: {}".format(mp3_file_name))
+
 				print("Creating directories...")
 				pathlib.Path(mp3_dir).mkdir(parents=True, exist_ok=True)
-				print("Moving to directory {}".format(mp3_dir))
+
+				print("Saving to {}".format(mp3_file_path))
 				os.rename(mp3_file_name, os.path.join(mp3_file_path))
-				print("File {} saved successfully".format(new_mp3_file_name))
+
+				print("Updating file metadata...")
+				write_metadata(mp3_file_path, row)
+
 
 if __name__ == "__main__":
 	main()
