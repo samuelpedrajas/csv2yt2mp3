@@ -33,7 +33,7 @@ def get_arguments():
 
 def get_search_query(csv_row):
 	return " - ".join([
-		csv_row["artist_name"], csv_row["album"], csv_row["song_name"]
+		csv_row["artist_name"], csv_row["song_name"]
 	])
 
 

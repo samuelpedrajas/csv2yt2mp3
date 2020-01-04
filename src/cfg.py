@@ -12,4 +12,4 @@ max_minutes = 19
 download_dir = "downloads"
 
 attempts = 5
-wait_time = [5, 5, 10, 15, 20]
+wait_time = [5, 5, 10, 15, 60]
