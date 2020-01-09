@@ -10,6 +10,7 @@ import glob
 import json
 import os
 import pathlib
+import shutil
 import sys
 import time
 
@@ -88,7 +89,15 @@ def list_mp3_files(path):
 
 
 def get_mp3_file_name(row):
-	return row['song_name'] + ".mp3"
+	return row['song_name'].replace("/", "-") + ".mp3"
+
+
+def get_mp3_dir(row):
+	return os.path.join(
+		cfg.download_dir,
+		row['artist_name'].replace("/", ""),
+		row['album'].replace("/", "")
+	)
 
 
 def write_metadata(mp3_file_path, row):
@@ -115,7 +124,6 @@ def video_download(video_url):
 			finally:
 				return
 
-
 def main():
 	csv_file_path = get_arguments()
 	mp3_files = list_mp3_files(".")
@@ -130,9 +138,7 @@ def main():
 
 			print("\n=== Searching {} ===".format(search_query))
 			new_mp3_file_name = get_mp3_file_name(row)
-			mp3_dir = os.path.join(
-				cfg.download_dir, row['artist_name'], row['album']
-			)
+			mp3_dir = get_mp3_dir(row)
 			mp3_file_path = os.path.join(mp3_dir, new_mp3_file_name)
 			if os.path.exists(mp3_file_path):
 				print("ERROR: song {} already exists".format(mp3_file_path))
@@ -168,7 +174,7 @@ def main():
 			pathlib.Path(mp3_dir).mkdir(parents=True, exist_ok=True)
 
 			print("Saving to {}".format(mp3_file_path))
-			os.rename(mp3_file_name, os.path.join(mp3_file_path))
+			shutil.move(mp3_file_name, mp3_file_path)
 
 			print("Updating file metadata...")
 			write_metadata(mp3_file_path, row)
