@@ -18,7 +18,7 @@ import cfg
 
 
 def usage():
-	print("Usage:\tpython csv2yt2mp3.py CSV_FILE_PATH DEST_FOLDER")
+	print("Usage:\tpython csv2yt2mp3.py CSV_FILE_PATH")
 
 
 def get_arguments():
