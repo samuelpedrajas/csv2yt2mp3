@@ -148,57 +148,70 @@ def video_download(video_url):
 			finally:
 				return
 
+
+def download_song(song_info):
+	search_query = get_search_query(song_info)
+
+	print("\n=== Searching {} ===".format(search_query))
+	new_mp3_file_name = get_mp3_file_name(song_info)
+	mp3_dir = get_mp3_dir(song_info)
+	mp3_file_path = os.path.join(mp3_dir, new_mp3_file_name)
+	if os.path.exists(mp3_file_path):
+		print("ERROR: song {} already exists".format(mp3_file_path))
+		return
+
+	search_result = youtube_search.YoutubeSearch(
+		search_query, max_results=10
+	).to_json()
+	search_result = json.loads(search_result)
+	search_result = search_result.get("videos", [])
+	if not search_result:
+		print("Search results are empty")
+		return
+
+	video_url = take_best_result(search_result)
+	if video_url is None:
+		print("ERROR: no video found for search {} with results {}".format(
+			search_query, search_result
+		))
+		return
+
+	print("Downloading video: {}".format(video_url))
+	video_download(video_url)
+
+	mp3_files = list_mp3_files(".")
+	if  not mp3_files or len(mp3_files) > 1:
+		print("ERROR: more than one file (or none) in current directory")
+		exit(1)
+	mp3_file_name = mp3_files[0]
+	print("Video downloaded: {}".format(mp3_file_name))
+
+	print("Creating directories...")
+	pathlib.Path(mp3_dir).mkdir(parents=True, exist_ok=True)
+
+	print("Saving to {}".format(mp3_file_path))
+	shutil.move(mp3_file_name, mp3_file_path)
+
+	print("Updating file metadata...")
+	write_metadata(mp3_file_path, song_info)
+
+
 if __name__ == "__main__":
 	args = get_arguments()
 	mp3_files = list_mp3_files(".")
 	if len(mp3_files) > 0:
 		print("ERROR: please, remove all mp3 files from the current directory first")
 		exit(1)
-	print("Opening CSV: {}".format(args.csv_file))
-	with open(args.csv_file, newline='') as csv_file:
-		reader = csv.DictReader(csv_file)
-		for row in reader:
-			search_query = get_search_query(row)
 
-			print("\n=== Searching {} ===".format(search_query))
-			new_mp3_file_name = get_mp3_file_name(row)
-			mp3_dir = get_mp3_dir(row)
-			mp3_file_path = os.path.join(mp3_dir, new_mp3_file_name)
-			if os.path.exists(mp3_file_path):
-				print("ERROR: song {} already exists".format(mp3_file_path))
-				continue
-
-			search_result = youtube_search.YoutubeSearch(
-				search_query, max_results=10
-			).to_json()
-			search_result = json.loads(search_result)
-			search_result = search_result.get("videos", [])
-			if not search_result:
-				print("Search results are empty")
-				continue
-
-			video_url = take_best_result(search_result)
-			if video_url is None:
-				print("ERROR: no video found for search {} with results {}".format(
-					search_query, search_result
-				))
-				continue
-
-			print("Downloading video: {}".format(video_url))
-			video_download(video_url)
-
-			mp3_files = list_mp3_files(".")
-			if  not mp3_files or len(mp3_files) > 1:
-				print("ERROR: more than one file (or none) in current directory")
-				exit(1)
-			mp3_file_name = mp3_files[0]
-			print("Video downloaded: {}".format(mp3_file_name))
-
-			print("Creating directories...")
-			pathlib.Path(mp3_dir).mkdir(parents=True, exist_ok=True)
-
-			print("Saving to {}".format(mp3_file_path))
-			shutil.move(mp3_file_name, mp3_file_path)
-
-			print("Updating file metadata...")
-			write_metadata(mp3_file_path, row)
+	if args.cmd == "import":
+		print("Opening CSV: {}".format(args.csv_file))
+		with open(args.csv_file, newline='') as csv_file:
+			reader = csv.DictReader(csv_file)
+			for song_info in reader:
+				download_song(song_info)
+	elif args.cmd == "download":
+		song_info = {}
+		song_info["artist_name"] = args.artist_name
+		song_info["album"] = args.album_name
+		song_info["song_name"] = args.track_name
+		download_song(song_info)
