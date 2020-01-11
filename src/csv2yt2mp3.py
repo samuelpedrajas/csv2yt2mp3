@@ -5,31 +5,55 @@ import pafy
 import youtube_dl
 import youtube_search
 
+import argparse
 import csv
 import glob
 import json
 import os
 import pathlib
 import shutil
-import sys
 import time
 
 import cfg
 
 
-def usage():
-	print("Usage:\tpython csv2yt2mp3.py CSV_FILE_PATH")
+def csv_file_type(astring):
+    if not os.path.exists(astring) or not astring.endswith(".csv"):
+        raise argparse.ArgumentTypeError("Incorrect file")
+    return astring
 
 
 def get_arguments():
-	if len(sys.argv) < 2:
-		usage()
-		exit(1)
-	csv_file_path = sys.argv[1]
-	if not os.path.exists(csv_file_path) or not csv_file_path.endswith(".csv"):
-		usage()
-		exit(1)
-	return csv_file_path
+	parser = argparse.ArgumentParser()
+	subparsers = parser.add_subparsers(help='Command to be executed')
+	subparsers.required = True
+	subparsers.dest = 'cmd'
+
+	import_parser = subparsers.add_parser("import")
+	import_parser.add_argument(
+		'--file', dest='csv_file',
+		type=csv_file_type, default=None, required=True,
+		help='CSV file to import'
+	)
+
+	download_parser = subparsers.add_parser("download")
+	download_parser.add_argument(
+		'--artist', dest='artist_name',
+		type=str, default=None, required=True,
+		help='Name of the artist'
+	)
+	download_parser.add_argument(
+		'--album', dest='album_name',
+		type=str, default=None, required=True,
+		help='Name of the album'
+	)
+	download_parser.add_argument(
+		'--track', dest='track_name',
+		type=str, default=None, required=True,
+		help='Name of the track'
+	)
+
+	return parser.parse_args()
 
 
 def get_search_query(csv_row):
@@ -124,14 +148,14 @@ def video_download(video_url):
 			finally:
 				return
 
-def main():
-	csv_file_path = get_arguments()
+if __name__ == "__main__":
+	args = get_arguments()
 	mp3_files = list_mp3_files(".")
 	if len(mp3_files) > 0:
 		print("ERROR: please, remove all mp3 files from the current directory first")
 		exit(1)
-	print("Opening CSV: {}".format(csv_file_path))
-	with open(csv_file_path, newline='') as csv_file:
+	print("Opening CSV: {}".format(args.csv_file))
+	with open(args.csv_file, newline='') as csv_file:
 		reader = csv.DictReader(csv_file)
 		for row in reader:
 			search_query = get_search_query(row)
@@ -178,7 +202,3 @@ def main():
 
 			print("Updating file metadata...")
 			write_metadata(mp3_file_path, row)
-
-
-if __name__ == "__main__":
-	main()
