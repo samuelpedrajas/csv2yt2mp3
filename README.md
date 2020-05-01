@@ -16,7 +16,7 @@ Yesterday,"The Beatles",Help!
 1. cd csv2yt2mp3
 1. python3 -m venv .venv
 1. source .venv/bin/activate
-1. pip install -r requirements
+1. pip install -r requirements.txt
 
 ## Usage
 ```Usage:	python csv2yt2mp3.py CSV_FILE_PATH```
